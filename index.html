@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JS &amp; PHP/MySQL Reviewer</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --card: #263349;
+      --border: #334155;
+      --primary: #3b82f6;
+      --primary-dark: #2563eb;
+      --success: #22c55e;
+      --danger: #ef4444;
+      --warning: #f59e0b;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100vh; }
+
+    /* ── HEADER ─────────────────────────────────────────────────── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex; flex-wrap: wrap; gap: 10px;
+      align-items: center; justify-content: space-between;
+      position: sticky; top: 0; z-index: 100;
+    }
+    .brand { font-weight: 700; font-size: 16px; color: var(--primary); white-space: nowrap; }
+    .bank-badge {
+      background: var(--card); border: 1px solid var(--border);
+      padding: 4px 12px; border-radius: 20px; font-size: 12px; color: var(--muted);
+    }
+    .header-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .btn {
+      padding: 8px 14px; border: none; border-radius: 8px; cursor: pointer;
+      font-size: 13px; font-weight: 600; transition: all .18s; white-space: nowrap;
+      color: #fff;
+    }
+    .btn:hover { filter: brightness(1.15); transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-primary   { background: var(--primary); }
+    .btn-secondary { background: var(--card); border: 1px solid var(--border); }
+    .btn-success   { background: #16a34a; }
+    .btn-danger    { background: var(--danger); }
+    .btn-warning   { background: #b45309; }
+    .btn-sm { padding: 6px 12px; font-size: 12px; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; filter: none; }
+
+    /* ── MAIN LAYOUT ─────────────────────────────────────────────── */
+    main { max-width: 900px; margin: 0 auto; padding: 20px 16px 40px; }
+
+    /* ── PROGRESS ────────────────────────────────────────────────── */
+    .progress-wrap { margin-bottom: 16px; }
+    .progress-label { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+    .progress-bar { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+    .progress-fill { height: 100%; background: linear-gradient(90deg, var(--primary), #818cf8); border-radius: 4px; transition: width .3s; }
+
+    /* ── ANSWERED COUNTER ────────────────────────────────────────── */
+    .answered-count {
+      font-size: 12px; color: var(--muted);
+      text-align: right; margin-bottom: 12px;
+    }
+    .answered-count span { color: var(--primary); font-weight: 700; }
+
+    /* ── QUESTION CARD ───────────────────────────────────────────── */
+    .question-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 18px;
+    }
+    .question-meta { font-size: 12px; color: var(--muted); margin-bottom: 10px; }
+    .question-text { font-size: 17px; line-height: 1.6; margin-bottom: 22px; color: #fff; }
+    .question-text code {
+      background: #0f172a; border: 1px solid var(--border);
+      padding: 2px 7px; border-radius: 5px; font-family: 'Courier New', monospace;
+      font-size: 14px; color: #7dd3fc;
+    }
+
+    /* ── CHOICES ─────────────────────────────────────────────────── */
+    .choices { display: flex; flex-direction: column; gap: 10px; }
+    .choice {
+      display: flex; align-items: flex-start; gap: 14px;
+      padding: 14px 18px; border-radius: 10px;
+      border: 2px solid var(--border);
+      background: var(--card);
+      cursor: pointer; transition: all .15s;
+      text-align: left; width: 100%;
+      color: #fff;
+    }
+    .choice:hover:not(.locked) { border-color: var(--primary); background: #1d3557; }
+    .choice.selected  { border-color: var(--primary); background: #1e3a8a44; }
+    .choice.correct   { border-color: var(--success); background: #14532d55; }
+    .choice.incorrect { border-color: var(--danger);  background: #7f1d1d55; }
+    /* Unselected correct answer highlight (missed) */
+    .choice.missed    { border-color: var(--success); background: #14532d33; }
+
+    .choice-letter {
+      min-width: 32px; height: 32px;
+      background: var(--border); border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px; flex-shrink: 0;
+      color: #fff;
+    }
+    .choice.selected  .choice-letter { background: var(--primary); }
+    .choice.correct   .choice-letter { background: var(--success); }
+    .choice.incorrect .choice-letter { background: var(--danger); }
+    .choice.missed    .choice-letter { background: var(--success); }
+
+    .choice-text { font-size: 14px; line-height: 1.5; padding-top: 5px; color: #fff; }
+    /* Label badges shown after submit */
+    .choice-label {
+      font-size: 10px; font-weight: 700; padding: 2px 8px;
+      border-radius: 12px; margin-left: auto; flex-shrink: 0; align-self: center;
+      white-space: nowrap;
+    }
+    .label-correct   { background: var(--success); color: #fff; }
+    .label-incorrect { background: var(--danger);  color: #fff; }
+    .label-missed    { background: #166534; color: #bbf7d0; }
+
+    /* ── NAV CONTROLS ────────────────────────────────────────────── */
+    .nav-controls { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; align-items: center; }
+
+    /* ── UNANSWERED WARNING ──────────────────────────────────────── */
+    .warn-banner {
+      background: #451a03; border: 1px solid #92400e;
+      color: #fcd34d; border-radius: 8px;
+      padding: 10px 16px; font-size: 13px; margin-top: 10px;
+      display: none;
+    }
+
+    /* ── QUESTION NAVIGATOR ──────────────────────────────────────── */
+    .navigator {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 18px; margin-top: 24px;
+    }
+    .navigator h4 { font-size: 13px; color: var(--muted); margin-bottom: 12px; }
+    .nav-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+    .nav-btn {
+      width: 36px; height: 36px; border-radius: 8px;
+      border: 1.5px solid var(--border); background: var(--card);
+      color: var(--muted); font-size: 12px; font-weight: 600;
+      cursor: pointer; transition: all .15s; display: flex;
+      align-items: center; justify-content: center;
+    }
+    .nav-btn:hover { border-color: var(--primary); color: var(--text); }
+    .nav-btn.answered { background: var(--primary); border-color: var(--primary); color: #fff; }
+    .nav-btn.current  { border-color: var(--warning); color: var(--warning); }
+    .nav-btn.answered.current { border-color: var(--warning); }
+
+    /* ── RESULT SCREEN ───────────────────────────────────────────── */
+    #result-screen { display: none; }
+    .scorecard {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 36px; text-align: center; margin-bottom: 24px;
+    }
+    /* PASSED / FAILED badge */
+    .verdict-badge {
+      display: inline-block; padding: 8px 32px; border-radius: 30px;
+      font-size: 22px; font-weight: 800; letter-spacing: 3px;
+      margin-bottom: 16px;
+    }
+    .verdict-passed  { background: #14532d; color: #86efac; }
+    .verdict-failed  { background: #7f1d1d; color: #fca5a5; }
+
+    .score-big { font-size: 64px; font-weight: 800; line-height: 1; }
+    .score-pct { font-size: 28px; color: var(--muted); margin-top: 4px; }
+    .score-details { display: flex; gap: 30px; justify-content: center; flex-wrap: wrap; margin-top: 24px; }
+    .score-stat { text-align: center; }
+    .score-stat .val { font-size: 28px; font-weight: 700; }
+    .score-stat .lbl { font-size: 12px; color: var(--muted); margin-top: 4px; }
+    .result-controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+    .passing-note { font-size: 13px; color: var(--muted); margin-top: 12px; }
+
+    /* ── REVIEW SCREEN ───────────────────────────────────────────── */
+    #review-screen { display: none; }
+    .review-item {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 22px; margin-bottom: 16px;
+    }
+    .review-q { font-size: 15px; margin-bottom: 14px; line-height: 1.6; color: #fff; }
+    .review-q code {
+      background: #0f172a; border: 1px solid var(--border);
+      padding: 2px 7px; border-radius: 5px; font-family: 'Courier New', monospace;
+      font-size: 13px; color: #7dd3fc;
+    }
+    .review-choices { display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; }
+    .review-choice {
+      display: flex; align-items: flex-start; gap: 10px;
+      padding: 10px 14px; border-radius: 8px;
+      border: 1.5px solid var(--border); background: var(--card);
+      font-size: 13px; color: #fff;
+    }
+    .review-choice.rc-correct   { border-color: var(--success); background: #14532d44; }
+    .review-choice.rc-incorrect { border-color: var(--danger);  background: #7f1d1d44; }
+    .rc-letter {
+      min-width: 26px; height: 26px; border-radius: 50%;
+      background: var(--border); display: flex; align-items: center;
+      justify-content: center; font-weight: 700; font-size: 12px;
+      flex-shrink: 0; color: #fff;
+    }
+    .review-choice.rc-correct   .rc-letter { background: var(--success); }
+    .review-choice.rc-incorrect .rc-letter { background: var(--danger); }
+    .rc-tag {
+      font-size: 10px; font-weight: 700; padding: 2px 8px;
+      border-radius: 10px; margin-left: auto; align-self: center; white-space: nowrap;
+    }
+    .rc-tag-correct   { background: var(--success); color: #fff; }
+    .rc-tag-incorrect { background: var(--danger);  color: #fff; }
+    .rc-tag-answer    { background: #1d4ed8; color: #fff; }
+
+    .review-verdict {
+      display: inline-block; padding: 3px 12px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; margin-bottom: 10px;
+    }
+    .rv-correct   { background: #14532d; color: #86efac; }
+    .rv-incorrect { background: #7f1d1d; color: #fca5a5; }
+    .review-explanation {
+      font-size: 13px; color: var(--muted); padding: 10px 14px;
+      background: #1e293b; border-radius: 8px; border-left: 3px solid var(--primary);
+      line-height: 1.5;
+    }
+    .back-top { text-align: center; margin-top: 20px; }
+
+    @media (max-width: 600px) {
+      header { flex-direction: column; align-items: flex-start; }
+      .score-big { font-size: 48px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════ HEADER ═══════════════════════════════ -->
+<header>
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+    <span class="brand">JS &amp; PHP/MySQL Reviewer</span>
+    <span class="bank-badge" id="bank-badge">Bank A</span>
+  </div>
+  <div class="header-controls">
+    <button class="btn btn-secondary btn-sm" onclick="shuffleQuestions()">Shuffle Questions</button>
+    <button class="btn btn-secondary btn-sm" onclick="shuffleChoices()">Shuffle Choices</button>
+    <button class="btn btn-warning   btn-sm" onclick="shuffleAll()">Shuffle All</button>
+    <button class="btn btn-success   btn-sm" onclick="newReviewer()">New Reviewer</button>
+    <button class="btn btn-primary   btn-sm" onclick="changeQuestions()">Change Questions</button>
+  </div>
+</header>
+
+<!-- ═══════════════════════════ EXAM SCREEN ═══════════════════════════ -->
+<main>
+  <div id="exam-screen">
+    <!-- Progress -->
+    <div class="progress-wrap">
+      <div class="progress-label">
+        <span id="progress-text">Question 1 of 80</span>
+        <span id="progress-pct">0%</span>
+      </div>
+      <div class="progress-bar"><div class="progress-fill" id="progress-fill" style="width:0%"></div></div>
+    </div>
+
+    <!-- Answered counter -->
+    <div class="answered-count">Answered: <span id="answered-count">0</span> / 80</div>
+
+    <!-- Question Card -->
+    <div class="question-card">
+      <div class="question-meta" id="q-meta">JavaScript Advanced · Question 1</div>
+      <div class="question-text" id="q-text">Loading...</div>
+      <div class="choices" id="choices-wrap"></div>
+    </div>
+
+    <!-- Nav Buttons -->
+    <div class="nav-controls">
+      <button class="btn btn-secondary" id="btn-prev" onclick="navigate(-1)">&#8592; Previous</button>
+      <button class="btn btn-primary"   id="btn-next" onclick="navigate(1)">Next &#8594;</button>
+      <button class="btn btn-danger"    id="btn-submit" style="display:none" onclick="submitExam()">Submit Exam</button>
+    </div>
+
+    <!-- Unanswered warning -->
+    <div class="warn-banner" id="warn-banner"></div>
+
+    <!-- Question Navigator -->
+    <div class="navigator">
+      <h4>QUESTION NAVIGATOR &mdash; click any number to jump</h4>
+      <div class="nav-grid" id="nav-grid"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ RESULT SCREEN ═══════════════════════════ -->
+  <div id="result-screen">
+    <div class="scorecard">
+      <div class="verdict-badge" id="verdict-badge">PASSED</div>
+      <div class="score-big" id="score-big">0</div>
+      <div class="score-pct" id="score-pct">0%</div>
+      <div style="color:var(--muted);font-size:14px;margin-top:6px;">out of 80 questions</div>
+      <div class="passing-note" id="passing-note">Passing score: 60 / 80 (75%)</div>
+      <div class="score-details">
+        <div class="score-stat"><div class="val" id="stat-correct" style="color:var(--success)">0</div><div class="lbl">Correct</div></div>
+        <div class="score-stat"><div class="val" id="stat-wrong"   style="color:var(--danger)">0</div><div class="lbl">Wrong</div></div>
+        <div class="score-stat"><div class="val" id="stat-pct"     style="color:var(--primary)">0%</div><div class="lbl">Score</div></div>
+      </div>
+    </div>
+    <div class="result-controls">
+      <button class="btn btn-primary"   onclick="showReview()">Review Answers</button>
+      <button class="btn btn-warning"   onclick="retakeExam()">Retake Exam</button>
+      <button class="btn btn-success"   onclick="newReviewer()">New Reviewer</button>
+      <button class="btn btn-secondary" onclick="shuffleAll()">Shuffle All</button>
+    </div>
+  </div>
+
+  <!-- ════════════════════════ REVIEW SCREEN ══════════════════════════ -->
+  <div id="review-screen">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+      <button class="btn btn-secondary" onclick="backToResult()">&#8592; Back to Score</button>
+      <button class="btn btn-warning"   onclick="retakeExam()">Retake Exam</button>
+      <button class="btn btn-success"   onclick="newReviewer()">New Reviewer</button>
+    </div>
+    <div id="review-list"></div>
+    <div class="back-top"><button class="btn btn-secondary" onclick="scrollTo(0,0)">&#8593; Back to Top</button></div>
+  </div>
+</main>
+
+<!-- ════════════════════ QUESTION BANK SCRIPTS ══════════════════════ -->
+<script src="questions-bank-a.js"></script>
+<script src="questions-bank-b.js"></script>
+<script src="questions-bank-c.js"></script>
+
+<!-- ═══════════════════════════ ENGINE ════════════════════════════════ -->
+<script>
+const BANKS      = [BANK_A, BANK_B, BANK_C];
+const BANK_NAMES = ['Bank A', 'Bank B', 'Bank C'];
+const PASS_PCT   = 75; // passing threshold
+
+let state = {
+  bankIndex: 0,
+  questions: [],
+  current:   0,
+  answers:   {},
+  submitted: false
+};
+
+/* ── INIT ───────────────────────────────────────────────────── */
+function init(bankIdx, doShuffleQ, doShuffleC) {
+  state.bankIndex = bankIdx;
+  state.current   = 0;
+  state.answers   = {};
+  state.submitted = false;
+  state.questions = deepClone(BANKS[bankIdx]);
+  if (doShuffleQ) fisherYates(state.questions);
+  if (doShuffleC) state.questions.forEach(q => fisherYates(q.choices));
+  document.getElementById('bank-badge').textContent = BANK_NAMES[bankIdx];
+  showScreen('exam');
+  render();
+  buildNavigator();
+  saveLS();
+}
+
+/* ── FISHER–YATES ───────────────────────────────────────────── */
+function fisherYates(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function deepClone(o) { return JSON.parse(JSON.stringify(o)); }
+
+/* ── RENDER QUESTION ────────────────────────────────────────── */
+function render() {
+  const q     = state.questions[state.current];
+  const idx   = state.current;
+  const total = state.questions.length;
+  const answeredCount = Object.keys(state.answers).length;
+
+  // Progress bar (based on position)
+  const pct = Math.round((idx / total) * 100);
+  document.getElementById('progress-text').textContent = `Question ${idx + 1} of ${total}`;
+  document.getElementById('progress-pct').textContent  = `${pct}%`;
+  document.getElementById('progress-fill').style.width = `${pct}%`;
+  document.getElementById('answered-count').textContent = answeredCount;
+
+  // Section label
+  const section = idx < 40 ? 'JavaScript Advanced' : 'PHP & MySQL Integration';
+  document.getElementById('q-meta').textContent = `${section}  ·  Question ${idx + 1}`;
+  document.getElementById('q-text').innerHTML   = q.question;
+
+  // Choices
+  const wrap = document.getElementById('choices-wrap');
+  wrap.innerHTML = '';
+  const letters  = ['A','B','C','D'];
+  const selected = state.answers[q.id];
+
+  q.choices.forEach((c, ci) => {
+    const btn = document.createElement('button');
+    btn.className = 'choice';
+    btn.dataset.choiceId = c.id;
+
+    const letterSpan = document.createElement('span');
+    letterSpan.className = 'choice-letter';
+    letterSpan.textContent = letters[ci];
+
+    const textSpan = document.createElement('span');
+    textSpan.className = 'choice-text';
+    textSpan.textContent = c.text;
+
+    btn.appendChild(letterSpan);
+    btn.appendChild(textSpan);
+
+    if (state.submitted) {
+      btn.classList.add('locked');
+      const isCorrect  = c.id === q.correctChoiceId;
+      const isSelected = c.id === selected;
+
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'choice-label';
+
+      if (isCorrect && isSelected) {
+        btn.classList.add('correct');
+        labelSpan.classList.add('label-correct');
+        labelSpan.textContent = 'Correct';
+        btn.appendChild(labelSpan);
+      } else if (!isCorrect && isSelected) {
+        btn.classList.add('incorrect');
+        labelSpan.classList.add('label-incorrect');
+        labelSpan.textContent = 'Your Answer';
+        btn.appendChild(labelSpan);
+      } else if (isCorrect && !isSelected) {
+        // Show correct answer even if user picked wrong
+        btn.classList.add('missed');
+        labelSpan.classList.add('label-missed');
+        labelSpan.textContent = 'Correct Answer';
+        btn.appendChild(labelSpan);
+      }
+    } else {
+      if (c.id === selected) btn.classList.add('selected');
+      btn.onclick = () => selectAnswer(q.id, c.id);
+    }
+
+    wrap.appendChild(btn);
+  });
+
+  // Nav buttons
+  document.getElementById('btn-prev').disabled = idx === 0;
+  const isLast = idx === total - 1;
+  document.getElementById('btn-next').style.display   = isLast ? 'none' : '';
+  document.getElementById('btn-submit').style.display = isLast ? '' : 'none';
+
+  // Hide warn banner on render
+  document.getElementById('warn-banner').style.display = 'none';
+
+  updateNavigator();
+}
+
+/* ── SELECT ANSWER ──────────────────────────────────────────── */
+function selectAnswer(qId, cId) {
+  if (state.submitted) return;
+  state.answers[qId] = cId;
+  render();
+  saveLS();
+}
+
+/* ── NAVIGATE ───────────────────────────────────────────────── */
+function navigate(dir) {
+  const next = state.current + dir;
+  if (next < 0 || next >= state.questions.length) return;
+  state.current = next;
+  render();
+}
+
+function jumpTo(idx) {
+  state.current = idx;
+  render();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+/* ── NAVIGATOR GRID ─────────────────────────────────────────── */
+function buildNavigator() {
+  const grid = document.getElementById('nav-grid');
+  grid.innerHTML = '';
+  state.questions.forEach((q, i) => {
+    const b = document.createElement('button');
+    b.className   = 'nav-btn';
+    b.textContent = i + 1;
+    b.onclick     = () => jumpTo(i);
+    b.id          = `nav-${i}`;
+    grid.appendChild(b);
+  });
+  updateNavigator();
+}
+
+function updateNavigator() {
+  state.questions.forEach((q, i) => {
+    const b = document.getElementById(`nav-${i}`);
+    if (!b) return;
+    b.className = 'nav-btn';
+    if (state.answers[q.id]) b.classList.add('answered');
+    if (i === state.current)  b.classList.add('current');
+  });
+}
+
+/* ── SUBMIT ─────────────────────────────────────────────────── */
+function submitExam() {
+  // Block submission if not all answered
+  const unanswered = state.questions.filter(q => !state.answers[q.id]);
+  if (unanswered.length > 0) {
+    const banner = document.getElementById('warn-banner');
+    banner.style.display = 'block';
+
+    // Find first unanswered question numbers
+    const nums = unanswered.slice(0, 5).map(q => state.questions.indexOf(q) + 1);
+    const extra = unanswered.length > 5 ? ` and ${unanswered.length - 5} more...` : '';
+    banner.textContent =
+      `Please answer all questions before submitting. ` +
+      `You still have ${unanswered.length} unanswered question(s). ` +
+      `(Question${nums.length > 1 ? 's' : ''}: ${nums.join(', ')}${extra})`;
+    return;
+  }
+
+  state.submitted = true;
+
+  let correct = 0;
+  state.questions.forEach(q => {
+    if (state.answers[q.id] === q.correctChoiceId) correct++;
+  });
+
+  const wrong  = state.questions.length - correct;
+  const pct    = Math.round((correct / state.questions.length) * 100);
+  const passed = pct >= PASS_PCT;
+
+  document.getElementById('score-big').textContent    = correct;
+  document.getElementById('score-pct').textContent    = pct + '%';
+  document.getElementById('stat-correct').textContent = correct;
+  document.getElementById('stat-wrong').textContent   = wrong;
+  document.getElementById('stat-pct').textContent     = pct + '%';
+
+  // Color score
+  const bigEl = document.getElementById('score-big');
+  bigEl.style.color = passed ? 'var(--success)' : 'var(--danger)';
+
+  // Verdict badge
+  const badge = document.getElementById('verdict-badge');
+  if (passed) {
+    badge.textContent = 'PASSED';
+    badge.className   = 'verdict-badge verdict-passed';
+  } else {
+    badge.textContent = 'FAILED';
+    badge.className   = 'verdict-badge verdict-failed';
+  }
+
+  document.getElementById('passing-note').textContent =
+    `Passing score: ${Math.ceil(state.questions.length * PASS_PCT / 100)} / ${state.questions.length} (${PASS_PCT}%)`;
+
+  showScreen('result');
+  localStorage.removeItem('reviewer_state');
+}
+
+/* ── REVIEW ─────────────────────────────────────────────────── */
+function showReview() {
+  const list    = document.getElementById('review-list');
+  list.innerHTML = '';
+  const letters = ['A','B','C','D'];
+
+  state.questions.forEach((q, i) => {
+    const userChoiceId  = state.answers[q.id];
+    const isCorrect     = userChoiceId === q.correctChoiceId;
+
+    const div = document.createElement('div');
+    div.className = 'review-item';
+
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = 'font-size:12px;color:var(--muted);margin-bottom:8px;';
+    header.textContent = `Question ${i + 1}`;
+    div.appendChild(header);
+
+    // Question text
+    const qText = document.createElement('div');
+    qText.className = 'review-q';
+    qText.innerHTML = q.question;
+    div.appendChild(qText);
+
+    // Verdict
+    const verdict = document.createElement('div');
+    verdict.className = `review-verdict ${isCorrect ? 'rv-correct' : 'rv-incorrect'}`;
+    verdict.textContent = isCorrect ? 'CORRECT' : 'INCORRECT';
+    div.appendChild(verdict);
+
+    // All choices with correct/incorrect coloring
+    const choicesWrap = document.createElement('div');
+    choicesWrap.className = 'review-choices';
+
+    q.choices.forEach((c, ci) => {
+      const isThisCorrect  = c.id === q.correctChoiceId;
+      const isThisSelected = c.id === userChoiceId;
+
+      const row = document.createElement('div');
+      row.className = 'review-choice';
+
+      if (isThisCorrect && isThisSelected) {
+        row.classList.add('rc-correct');
+      } else if (!isThisCorrect && isThisSelected) {
+        row.classList.add('rc-incorrect');
+      } else if (isThisCorrect && !isThisSelected) {
+        row.classList.add('rc-correct');
+      }
+
+      const ltr = document.createElement('span');
+      ltr.className   = 'rc-letter';
+      ltr.textContent = letters[ci];
+
+      const txt = document.createElement('span');
+      txt.style.flex = '1';
+      txt.textContent = c.text;
+
+      row.appendChild(ltr);
+      row.appendChild(txt);
+
+      // Tags
+      if (isThisCorrect && isThisSelected) {
+        const tag = document.createElement('span');
+        tag.className   = 'rc-tag rc-tag-correct';
+        tag.textContent = 'Correct';
+        row.appendChild(tag);
+      } else if (!isThisCorrect && isThisSelected) {
+        const tag = document.createElement('span');
+        tag.className   = 'rc-tag rc-tag-incorrect';
+        tag.textContent = 'Your Answer';
+        row.appendChild(tag);
+      } else if (isThisCorrect && !isThisSelected) {
+        const tag = document.createElement('span');
+        tag.className   = 'rc-tag rc-tag-answer';
+        tag.textContent = 'Correct Answer';
+        row.appendChild(tag);
+      }
+
+      choicesWrap.appendChild(row);
+    });
+
+    div.appendChild(choicesWrap);
+
+    // Explanation
+    const exp = document.createElement('div');
+    exp.className = 'review-explanation';
+    exp.textContent = q.explanation;
+    div.appendChild(exp);
+
+    list.appendChild(div);
+  });
+
+  showScreen('review');
+  window.scrollTo(0, 0);
+}
+
+function backToResult() { showScreen('result'); }
+
+/* ── SHUFFLE CONTROLS ───────────────────────────────────────── */
+function shuffleQuestions() {
+  fisherYates(state.questions);
+  state.current = 0; state.answers = {}; state.submitted = false;
+  showScreen('exam'); render(); buildNavigator(); saveLS();
+}
+
+function shuffleChoices() {
+  state.questions.forEach(q => fisherYates(q.choices));
+  state.current = 0; state.answers = {}; state.submitted = false;
+  showScreen('exam'); render(); buildNavigator(); saveLS();
+}
+
+function shuffleAll() {
+  fisherYates(state.questions);
+  state.questions.forEach(q => fisherYates(q.choices));
+  state.current = 0; state.answers = {}; state.submitted = false;
+  showScreen('exam'); render(); buildNavigator(); saveLS();
+}
+
+function newReviewer() {
+  let next = (state.bankIndex + 1) % BANKS.length;
+  init(next, true, true);
+}
+
+function changeQuestions() {
+  let opts = [0,1,2].filter(i => i !== state.bankIndex);
+  let next = opts[Math.floor(Math.random() * opts.length)];
+  init(next, true, true);
+}
+
+function retakeExam() {
+  state.current = 0; state.answers = {}; state.submitted = false;
+  showScreen('exam'); render(); buildNavigator(); saveLS();
+}
+
+/* ── SCREEN SWITCHER ────────────────────────────────────────── */
+function showScreen(name) {
+  document.getElementById('exam-screen').style.display   = name === 'exam'   ? '' : 'none';
+  document.getElementById('result-screen').style.display = name === 'result' ? '' : 'none';
+  document.getElementById('review-screen').style.display = name === 'review' ? '' : 'none';
+}
+
+/* ── LOCAL STORAGE ──────────────────────────────────────────── */
+function saveLS() {
+  try {
+    localStorage.setItem('reviewer_state', JSON.stringify({
+      bankIndex: state.bankIndex,
+      questions: state.questions,
+      current:   state.current,
+      answers:   state.answers
+    }));
+  } catch(e) {}
+}
+
+function loadLS() {
+  try {
+    const raw = localStorage.getItem('reviewer_state');
+    if (!raw) return false;
+    const s = JSON.parse(raw);
+    if (!s || !s.questions || s.questions.length !== 80) return false;
+    state.bankIndex = s.bankIndex;
+    state.questions = s.questions;
+    state.current   = s.current;
+    state.answers   = s.answers;
+    state.submitted = false;
+    document.getElementById('bank-badge').textContent = BANK_NAMES[s.bankIndex];
+    showScreen('exam');
+    render();
+    buildNavigator();
+    return true;
+  } catch(e) { return false; }
+}
+
+/* ── BOOT ───────────────────────────────────────────────────── */
+(function boot() {
+  if (!loadLS()) init(0, false, false);
+})();
+</script>
+</body>
+</html>
